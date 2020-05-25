@@ -249,6 +249,7 @@ class CTMNet(nn.Module):
                 assert np.mod(self.dnet_out_c, 4) == 0
                 out_size = int(self.dnet_out_c / 4)
                 self.inplanes = _embedding.size(1)
+                #where is CTMNEt _make_layer???
                 if self.opts.model.structure.startswith('resnet'):
                     self.reshaper = nn.Sequential(
                         self._make_layer(Bottleneck, out_size*2, 3, stride=1),
@@ -260,11 +261,14 @@ class CTMNet(nn.Module):
 
             # CONCENTRATOR AND PROJECTOR
             if self.dnet:
+                """
                 if self.mp_mean:
+                    #use sample mean of each sample
                     self.inplanes = _embedding.size(1)
                 else:
                     # concatenate along the channel for all samples in each class
-                    self.inplanes = self.opts.fsl.k_shot[0]*_embedding.size(1)
+                """
+                self.inplanes = self.opts.fsl.k_shot[0]*_embedding.size(1)
                 if self.opts.model.structure.startswith('resnet'):
                     self.main_component = nn.Sequential(
                         self._make_layer(Bottleneck, out_size*2, 3, stride=1),
@@ -274,6 +278,7 @@ class CTMNet(nn.Module):
                     self.main_component = self._make_layer(Bottleneck, out_size, 4, stride=1)
 
                 # projector
+                """
                 if self.delete_mp:
                     assert self.opts.fsl.k_shot[0] == 1
                     del self.main_component
@@ -281,7 +286,8 @@ class CTMNet(nn.Module):
                     self.inplanes = self.opts.fsl.n_way[0]*_embedding.size(1)
                 else:
                     # input_c for Projector, has mp
-                    self.inplanes = self.opts.fsl.n_way[0]*out_size*4
+                """
+                self.inplanes = self.opts.fsl.n_way[0]*out_size*4
 
                 if self.opts.model.structure.startswith('resnet'):
                     self.projection = nn.Sequential(
@@ -419,6 +425,9 @@ class CTMNet(nn.Module):
         query_sz = query_x.size(1)
         n_way, k_shot = self.opts.fsl.n_way[0], self.opts.fsl.k_shot[0]
 
+        support_x = torch.squeeze(support_x,0)
+        query_x = torch.squeeze(query_x,0)
+
         # 1. FEATURE EXTRACTION (FOR NOW DISABLE SWAP)
         # support_sz (25), c (64), d (19), d (19)
         support_xf_ori = self.repnet(support_x.view(batch_sz*support_sz, -1, _d, _d))
@@ -426,6 +435,7 @@ class CTMNet(nn.Module):
         query_xf_ori = self.repnet(query_x.view(batch_sz*query_sz, -1, _d, _d))
 
         if self.dnet:
+            """
             if not self.delete_mp:
                 if not self.mp_mean:
                     support_xf_reshape = support_xf_ori.view(n_way, -1, support_xf_ori.size(2), support_xf_ori.size(3))
@@ -436,11 +446,15 @@ class CTMNet(nn.Module):
                     mp = torch.mean(mp.view(n_way, k_shot, mp.size(1), mp.size(2), mp.size(2)), dim=1, keepdim=False)
                 _input_P = mp.view(1, -1, mp.size(2), mp.size(3))           # mp -> 1, 5*64, 3, 3
             else:
-                _input_P = support_xf_ori.view(1, -1, support_xf_ori.size(2), support_xf_ori.size(3))
+                """
+            support_xf_reshape = support_xf_ori.view(n_way, -1, support_xf_ori.size(2), support_xf_ori.size(3))
+            mp = self.main_component(support_xf_reshape)                # 5(n_way), 64, 3, 3
+            _input_P = mp.view(1,-1, mp.size(2), mp.size(3))           # mp -> 1, 5*64, 3, 3
 
             # for P: consider all components
             P = self.projection(_input_P)                                   # 1, 64, 3, 3
             P = F.softmax(P, dim=1)
+            """
             if self.dnet_supp_manner == '2' or self.dnet_supp_manner == '3':
                 mp_modified = torch.matmul(mp, P)                           # 5, 64, 3, 3
 
@@ -453,7 +467,9 @@ class CTMNet(nn.Module):
                 v = torch.matmul(v, mp_modified.unsqueeze(1)).view(support_sz, v.size(2), v.size(3), v.size(3))
             elif self.dnet_supp_manner == '3':
                 v = mp_modified
-
+            """
+            v = self.reshaper(support_xf_ori)
+            v = torch.matmul(v, P)
             query = self.reshaper(query_xf_ori)                             # 75, 64, 3, 3
             query = torch.matmul(query, P)
         else:

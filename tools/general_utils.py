@@ -315,17 +315,17 @@ def _merge_a_into_b(a, b, stack=None):
     for k, v_ in a.items():
         full_key = '.'.join(stack) + '.' + k if stack is not None else k
         # a must specify keys that are in b
-        if k not in b:
             # if _key_is_deprecated(full_key):
             #     continue
             # elif _key_is_renamed(full_key):
             #     _raise_key_rename_error(full_key)
             # else:
-            raise KeyError('Non-existent config key: {}'.format(full_key))
+            #raise KeyError('Non-existent config key: {}'.format(full_key))
 
         v = copy.deepcopy(v_)
         v = _decode_cfg_value(v)
-        v = _check_and_coerce_cfg_value_type(v, b[k], k, full_key)
+        if k in b:
+            v = _check_and_coerce_cfg_value_type(v, b[k], k, full_key)
 
         # Recursively merge dicts
         if isinstance(v, AttrDict):

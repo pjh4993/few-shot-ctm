@@ -65,7 +65,7 @@ class Config(object):
 
     # ignore the resume file if set True
     ctrl.train_from_scratch = False
-    ctrl.device = 'cpu'
+    ctrl.device = 'cuda'
     ctrl.multi_gpu = False
     # how many iteration we want for each epoch and each test evaluation
     ctrl.total_iter_train = -1
@@ -180,15 +180,15 @@ class Config(object):
         # visualization
         self.io.loss_vis_str = ' [ep {:04d} ({})/ iter {:06d} ({})] loss: {:.4f}'
         self.io.time_vis_str = ' \tEstimated left time: {:d} days, {:.4f} hours;\tTotal time taken: {:.2f} days'
-        self._sanity_check()
+        #self._sanity_check()
 
         # set opt.multi_gpu and opt.device
         multi_gpu = True if len(self.ctrl.gpu_id) > 1 else False
         self.logger('gpu_ids: {}\n'.format(self.ctrl.gpu_id))
         self.ctrl.multi_gpu = multi_gpu
         # for demo purpose
-        self.ctrl.device = 'cpu'
-        # self.ctrl.device = 'cuda'
+        #self.ctrl.device = 'cpu'
+        self.ctrl.device = 'cuda'
 
     def _sanity_check(self):
 

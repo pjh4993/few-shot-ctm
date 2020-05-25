@@ -61,12 +61,12 @@ class Config(object):
     ctrl.method = 'relation'
     ctrl.yaml_file = ''
     # gpu_id is just for visualization purpose
-    ctrl.gpu_id = [0]
+    ctrl.gpu_id = [0,1]
 
     # ignore the resume file if set True
     ctrl.train_from_scratch = False
     ctrl.device = 'cuda'
-    ctrl.multi_gpu = False
+    ctrl.multi_gpu = True
     # how many iteration we want for each epoch and each test evaluation
     ctrl.total_iter_train = -1
     ctrl.total_iter_val = -1

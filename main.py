@@ -10,6 +10,10 @@ from tools.visualize import Visualizer
 from core.workflow import *
 from core.config import Config
 
+class MyDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        return getattr(self.module, name)
+
 
 def main():
     parser = argparse.ArgumentParser()

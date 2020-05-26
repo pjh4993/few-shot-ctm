@@ -7,7 +7,6 @@ from torch.nn import functional as F
 from torch.utils import model_zoo
 from copy import deepcopy
 
-
 eps = 1e-10
 
 
@@ -182,7 +181,7 @@ def feat_extract(pretrained=False, **kwargs):
     # resnet"x", x = 1 + sum(layers)x3
     if kwargs['structure'] == 'resnet40':
         model = ResNet(Bottleneck, [3, 4, 6], kwargs['in_c'])
-    elif kwargs['structure'] == 'resnet19':
+    elif kwargs['structure'] == 'resnet18':
         model = ResNet(Bottleneck, [2, 2, 2], kwargs['in_c'])
     elif kwargs['structure'] == 'resnet52':
         model = ResNet(Bottleneck, [4, 8, 5], kwargs['in_c'])
@@ -222,6 +221,11 @@ class CTMNet(nn.Module):
         self.repnet = feat_extract(
             self.opts.model.resnet_pretrain,
             opts=opts, structure=opts.model.structure, in_c=in_c)
+        """
+        if(opts.ctrl.multi_gpu):
+            self.repnet = torch.nn.DataParallel(self.repnet)
+            self.repnet.cuda()
+        """
 
         input_bs = opts.fsl.n_way[0]*opts.fsl.k_shot[0]
         random_input = torch.rand(input_bs, in_c, opts.data.im_size, opts.data.im_size)
@@ -257,7 +261,13 @@ class CTMNet(nn.Module):
                     )
                 else:
                     self.reshaper = self._make_layer(Bottleneck, out_size, 4, stride=1)
+
+                """
+                if(opts.ctrl.multi_gpu):
+                    self.reshaper = torch.nn.DataParallel(self.reshaper)
+                    self.reshaper.cuda()
                 _out_downsample = self.reshaper(_embedding)
+                """
 
             # CONCENTRATOR AND PROJECTOR
             if self.dnet:
@@ -276,7 +286,11 @@ class CTMNet(nn.Module):
                     )
                 else:
                     self.main_component = self._make_layer(Bottleneck, out_size, 4, stride=1)
-
+                """
+                if(opts.ctrl.multi_gpu):
+                    self.main_component = torch.nn.DataParallel(self.main_component)
+                    self.main_component.cuda()
+                """
                 # projector
                 """
                 if self.delete_mp:
@@ -296,6 +310,12 @@ class CTMNet(nn.Module):
                     )
                 else:
                     self.projection = self._make_layer(Bottleneck, out_size, 4, stride=1)
+                """
+                if(opts.ctrl.multi_gpu):
+                    self.projection = torch.nn.DataParallel(self.projection)
+                    self.projection.cuda()
+                """
+
 
             # RELATION METRIC
             if self.use_relation_net:
@@ -418,6 +438,9 @@ class CTMNet(nn.Module):
         ot_loss_fac = np.min([.2*self.epoch, 1])
         return loss_fac, ot_loss_fac
 
+    def forward(self, x):
+        return self.forward_CTM(x.support_x, x.support_y, x.query_x, x.query_y, x.train, x.optimizer)
+
     def forward_CTM(self, support_x, support_y, query_x, query_y, train=False, optimizer=None):
 
         target, one_hot, target_support = self.get_target(support_y, query_y)
@@ -517,7 +540,7 @@ class CTMNet(nn.Module):
         query_y = query_y[0]
 
         target = torch.stack([
-            torch.nonzero(torch.eq(support_y, entry)) for entry in query_y
+            torch.nonzero(torch.eq(support_y, entry), as_tuple=False) for entry in query_y
         ])
         target = target.view(-1, 1)  # shape: query_size
         one_hot_labels = \

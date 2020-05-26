@@ -1,7 +1,8 @@
 dataset:
     name: 'mini-imagenet'
 model:
-    structure: 'shallow'
+    structure: 'resnet18'
+    resnet_pretrain: False
 test:
     compute_train_acc: True
     do_after_ep: 50           # non-eager mode
@@ -18,10 +19,11 @@ fsl:
     k_query: [8]
 train:
     clip_grad: True
-    batch_sz: 1
+    batch_sz: 20
     nep: 400
     lr_scheduler: [200, 300, 350]
 ctrl:
     method: 'all_new'   # keep it in all new experiments
     eager: 0
     note: 'config file: {:s}'
+    pretrain: True

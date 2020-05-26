@@ -18,16 +18,16 @@ class MyDataParallel(torch.nn.DataParallel):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--eid', type=int, default=-1)
-    parser.add_argument('--gpu_id', type=int, nargs='+', default=0)
+    #parser.add_argument('--gpu_id', type=int, nargs='+', default=0)
     parser.add_argument('--yaml_file', type=str, default='configs/demo/mini/20way_1shot.yaml')
     outside_opts = parser.parse_args()
-    if isinstance(outside_opts.gpu_id, int):
-        outside_opts.gpu_id = [outside_opts.gpu_id]  # int -> list
+    #if isinstance(outside_opts.gpu_id, int):
+    #   outside_opts.gpu_id = [outside_opts.gpu_id]  # int -> list
 
     config = {}
     config['options'] = {
-        'ctrl.yaml_file': outside_opts.yaml_file,
-        'ctrl.gpu_id': outside_opts.gpu_id
+        'ctrl.yaml_file': outside_opts.yaml_file
+        #'ctrl.gpu_id': outside_opts.gpu_id
     }
     opts = Config(config['options']['ctrl.yaml_file'], config['options'])
     opts.setup()
@@ -35,19 +35,21 @@ def main():
     # DATA
     meta_test = None
     train_db_list, val_db_list, _, _ = data_loader(opts)
+    print(opts.ctrl.device)
+    print(torch.cuda.device_count())
 
     # MODEL
     # NOTE: we use cpu mode for demo; change to gpu for experiments
-    net = CTMNet(opts).to(opts.ctrl.device)
+    net = CTMNet(opts).to(torch.device("cuda"))
 
     net_summary, param_num = model_summarize(net)
     opts.logger('Model size: param num # {:f} Mb'.format(param_num))
     opts.model.param_size = param_num
 
     resume_model(net, opts)
-    if opts.ctrl.multi_gpu:
-        opts.logger('Wrapping network into multi-gpu mode ...')
-        net = torch.nn.DataParallel(net)
+    #if opts.ctrl.multi_gpu:
+    #   opts.logger('Wrapping network into multi-gpu mode ...')
+    net = torch.nn.DataParallel(net, device_ids=[0, 1])
 
     # OPTIM AND LR SCHEDULE
     optimizer, scheduler = [], []
@@ -87,13 +89,14 @@ def main():
     # ###############################################
     # ################## PIPELINE ###################
     best_accuracy = opts.io.previous_acc
-    RESET_BEST_ACC = True   # for evolutionary train
+    RESET_BEST_ACC = False   # for evolutionary train
     last_epoch, last_iter = opts.io.saved_epoch, opts.io.saved_iter
     opts.logger('CTM Pipeline starts now !!! (cpu demo purpose)')
     show_str = '[TRAIN FROM SCRATCH] LOG' if not opts.io.resume else '[RESUME] LOG'
     opts.logger('{}\n'.format(show_str))
 
     total_ep = opts.train.nep
+    opts.logger(total_ep)
     if opts.ctrl.start_epoch > 0 or opts.ctrl.start_iter > 0:
         assert opts.io.resume
         RESUME = True
@@ -109,7 +112,6 @@ def main():
 
         # adjust learning rate
         old_lr = optimizer.param_groups[0]['lr']
-        scheduler.step(epoch)
         new_lr = optimizer.param_groups[0]['lr']
         if epoch == opts.ctrl.start_epoch:
             opts.logger('Start lr is {:.8f}, at epoch {}\n'.format(old_lr, epoch))
@@ -138,8 +140,18 @@ def main():
             if step >= total_iter:
                 break
 
+            opts.ctrl.device = torch.device("cuda")
+
             support_x, support_y, query_x, query_y = process_input(batch, opts, mode='train')
-            loss, _ = net.forward_CTM(support_x, support_y, query_x, query_y, True)
+            kwargs = AttrDict()
+            kwargs.support_x = support_x
+            kwargs.support_y = support_y
+            kwargs.query_x = query_x
+            kwargs.query_y = query_y
+            kwargs.train = True
+            kwargs.optimizer = None
+            loss, _ = net(kwargs)
+            #loss, _ = net.forward_CTM(support_x, support_y, query_x, query_y, True)
             loss = loss.mean(0)
             vis_loss = loss.data.cpu().numpy()
 
@@ -157,7 +169,7 @@ def main():
                 # doesn't affect that much
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 0.5)
             optimizer.step()
-
+            scheduler.step()
             iter_time = (time.time() - step_t)
             left_time = compute_left_time(iter_time, epoch, total_ep, step, total_iter)
 

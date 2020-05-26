@@ -1,5 +1,6 @@
 import torch
 from copy import deepcopy
+from tools.general_utils import *
 
 
 def process_input(batch, opts, mode='train'):
@@ -59,7 +60,15 @@ def test_model(net, input_db, eval_length, opts, which_ind, curr_shot, optimizer
             support_x, support_y, query_x, query_y = process_input(batch_test, opts, mode='test')
 
             if opts.fsl.ctm:
-                _, correct = net.forward_CTM(support_x, support_y, query_x, query_y, False)
+                kwargs = AttrDict()
+                kwargs.support_x = support_x
+                kwargs.support_y = support_y
+                kwargs.query_x = query_x
+                kwargs.query_y = query_y
+                kwargs.train = False
+                kwargs.optimizer = False
+                _, correct = net(kwargs)
+                #_, correct = net.forward_CTM(support_x, support_y, query_x, query_y, False)
             else:
                 if opts.model.structure == 'original':
                     support_x, support_y, query_x, query_y = \
@@ -132,9 +141,9 @@ def run_test(opts, val_db, net, vis, **args):
     accuracy = test_model(net, val_db, eval_length, opts, which_ind, curr_shot, optimizer, meta_test)
 
     eqn = '>' if accuracy > best_accuracy else '<'
-    _curr_str = '\t\tCurrent {:s} accuracy is {:.4f} {:s} ' \
-                'previous best accuracy is {:.4f} (ep{}, iter{})'.format(
-        accuracy, eqn, best_accuracy, last_epoch, last_iter)
+    _curr_str = '\t\tCurrent accuracy is {:.4f} {:s} \
+                previous best accuracy is {:.4f} (ep{}, iter{})'.format(\
+                accuracy, eqn, best_accuracy, last_epoch, last_iter)
     opts.logger(_curr_str)
 
     # Also test the train-accuracy at end of one epoch

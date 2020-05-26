@@ -78,7 +78,7 @@ class Config(object):
     # ==============
     train = AttrDict()
     train.batch_sz = 1
-    train.nep = 500
+    train.nep = 100
     train.lr_policy = 'multi_step'
     train.lr_scheduler = [20, 30]
     train.lr = 0.001
@@ -139,7 +139,6 @@ class Config(object):
         if self.ctrl.eager:
             self.io.iter_vis_loss, self.io.iter_do_val = 5, 102
             self.train.lr_scheduler = [5, 7]
-            self.train.nep = 10
             # self.train.lr_scheduler = [10]
             # self.train.nep = 15
             # self.test.do_after_ep = 15
@@ -188,7 +187,7 @@ class Config(object):
         self.ctrl.multi_gpu = multi_gpu
         # for demo purpose
         #self.ctrl.device = 'cpu'
-        self.ctrl.device = 'cuda'
+        self.ctrl.device = torch.device('cuda')
 
     def _sanity_check(self):
 

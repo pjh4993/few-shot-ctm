@@ -71,10 +71,10 @@ def resume_model(model, opt):
         opt.logger('\tthis checkpoint is at epoch {}, iter {}, accuracy is {:.4f}\n'.format(
             _last_epoch, _last_iter, opt.io.previous_acc))
 
-        if opt.fsl.evolution:
-            which_ind = sum(_last_epoch >= np.array(opt.fsl.epoch_schedule))
-        else:
-            which_ind = 0
+        #if opt.fsl.evolution:
+        #    which_ind = sum(_last_epoch >= np.array(opt.fsl.epoch_schedule))
+        #else:
+        which_ind = 0
         if _last_iter == opt.ctrl.total_iter_train[which_ind] - 1:
             opt.ctrl.start_epoch = _last_epoch + 1
             opt.ctrl.start_iter = 0
